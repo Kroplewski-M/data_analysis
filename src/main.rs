@@ -7,7 +7,7 @@ use std::error::Error;
 struct Record {
     country: String,
     product: String,
-    units_sold: f64,
+    units_sold: i64,
     manufacturing_price: String,
     sale_price: f64,
     date: NaiveDate,
@@ -54,7 +54,7 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         // Skip row if Units Sold is empty or null
         let units_sold_str = record.get(4).unwrap_or("").trim();
         let units_sold = match parse_money(units_sold_str) {
-            Some(val) => val,
+            Some(val) => val.floor() as i64,
             None => continue,
         };
 
@@ -148,4 +148,3 @@ fn main() -> Result<(), Box<dyn Error>> {
     clean_dashboard_csv()?;
     Ok(())
 }
-
