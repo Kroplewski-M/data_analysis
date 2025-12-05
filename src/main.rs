@@ -4,7 +4,7 @@ use regex::Regex;
 use std::error::Error;
 
 #[derive(Debug)]
-struct Record {
+struct DashboardRow {
     country: String,
     product: String,
     units_sold: i64,
@@ -76,7 +76,7 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")
             .or_else(|_| NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))?;
 
-        records.push(Record {
+        records.push(DashboardRow {
             country,
             product,
             units_sold,
@@ -100,7 +100,7 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
 
     println!("Filtering out outliers");
 
-    let filtered: Vec<&Record> = records
+    let filtered: Vec<&DashboardRow> = records
         .iter()
         .filter(|r| r.sale_price >= lower && r.sale_price <= upper)
         .collect();
