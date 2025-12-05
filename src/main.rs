@@ -137,6 +137,15 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+fn clean_forcasting_csv() -> Result<(), Box<dyn Error>> {
+    Ok(())
+}
+
+fn clean_timeseries_csv() -> Result<(), Box<dyn Error>> {
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     clean_dashboard_csv()?;
     Ok(())
