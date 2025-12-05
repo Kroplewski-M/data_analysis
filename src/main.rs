@@ -15,7 +15,7 @@ struct Record {
 fn parse_money(s: &str) -> Option<f64> {
     // Remove $, £, commas
     let cleaned_string = s.replace(&['$', '£', ','][..], "");
-    let clean = cleaned_string.trim(); // now safe, 'cleaned_string' lives long enough
+    let clean = cleaned_string.trim();
     if clean.is_empty() || clean == "null" {
         None
     } else {
@@ -39,7 +39,6 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
     for result in rdr.records() {
         let record = result?;
 
-        // Skip rows that are all nulls or empty
         if record
             .iter()
             .all(|s| s.trim().is_empty() || s.trim() == "null")
@@ -47,18 +46,15 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        // Extract and clean columns
         let country = record.get(1).unwrap_or("").trim().to_string();
         let product = record.get(2).unwrap_or("").trim().to_string();
 
-        // Skip row if Units Sold is empty or null
         let units_sold_str = record.get(4).unwrap_or("").trim();
         let units_sold = match parse_money(units_sold_str) {
             Some(val) => val.floor() as i64,
             None => continue,
         };
 
-        // Skip row if Manufacturing Price is empty or null
         let manufacturing_price_raw = record.get(5).unwrap_or("").trim();
         if manufacturing_price_raw.is_empty() || manufacturing_price_raw == "null" {
             continue;
@@ -67,14 +63,12 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
             .replace_all(manufacturing_price_raw, "£")
             .to_string();
 
-        // Skip row if Sale Price is empty or null
         let sale_price_str = record.get(6).unwrap_or("").trim();
         let sale_price = match parse_money(sale_price_str) {
             Some(val) => val,
             None => continue,
         };
 
-        // Skip row if Date is empty or null
         let date_str = record.get(12).unwrap_or("").trim();
         if date_str.is_empty() || date_str == "null" {
             continue;
@@ -82,7 +76,6 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")
             .or_else(|_| NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))?;
 
-        // Only push record if all fields are valid
         records.push(Record {
             country,
             product,
