@@ -8,7 +8,7 @@ struct DashboardRow {
     country: String,
     product: String,
     units_sold: i64,
-    manufacturing_price: String,
+    manufacturing_price: f64,
     sale_price: f64,
     date: NaiveDate,
 }
@@ -59,9 +59,10 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         if manufacturing_price_raw.is_empty() || manufacturing_price_raw == "null" {
             continue;
         }
-        let manufacturing_price = re_dollar
-            .replace_all(manufacturing_price_raw, "£")
-            .to_string();
+        let manufacturing_price = match parse_money(manufacturing_price_raw) {
+            Some(val) => val,
+            None => continue,
+        };
 
         let sale_price_str = record.get(6).unwrap_or("").trim();
         let sale_price = match parse_money(sale_price_str) {
@@ -126,8 +127,8 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
             &r.country,
             &r.product,
             &r.units_sold.to_string(),
-            &r.manufacturing_price,
-            &format!("£{:.2}", r.sale_price),
+            &r.manufacturing_price.to_string(),
+            &r.sale_price.to_string(),
             &r.date.format("%Y-%m-%d").to_string(),
         ])?;
     }
