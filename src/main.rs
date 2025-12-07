@@ -28,7 +28,6 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)
         .trim(csv::Trim::All)
-        .flexible(true)
         .from_path("Data/Part_B_Dashboard_file.csv")?;
 
     // Regex to clean $ and commas from numbers
