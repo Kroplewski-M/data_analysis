@@ -1,6 +1,5 @@
 use chrono::NaiveDate;
 use csv::{ReaderBuilder, WriterBuilder};
-use regex::Regex;
 use std::error::Error;
 
 #[derive(Debug)]
@@ -29,9 +28,6 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         .has_headers(true)
         .trim(csv::Trim::All)
         .from_path("Data/Part_B_Dashboard_file.csv")?;
-
-    // Regex to clean $ and commas from numbers
-    let re_dollar = Regex::new(r"[\$,]")?;
 
     let mut records = Vec::new();
 
