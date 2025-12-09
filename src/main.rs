@@ -69,8 +69,7 @@ fn clean_dashboard_csv() -> Result<(), Box<dyn Error>> {
         if date_str.is_empty() || date_str == "null" {
             continue;
         }
-        let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")
-            .or_else(|_| NaiveDate::parse_from_str(date_str, "%m/%d/%Y"))?;
+        let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")?;
 
         records.push(DashboardRow {
             country,
