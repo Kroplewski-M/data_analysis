@@ -218,7 +218,10 @@ fn clean_timeseries_csv() -> Result<(), Box<dyn Error>> {
 }
 
 fn clean_forcasting_csv() -> Result<(), Box<dyn Error>> {
-    println!("Opening forcasting file");
+    use chrono::NaiveDate;
+    use csv::{ReaderBuilder, WriterBuilder};
+
+    println!("Opening forecasting file");
 
     let mut rdr = ReaderBuilder::new()
         .has_headers(true)
@@ -228,6 +231,99 @@ fn clean_forcasting_csv() -> Result<(), Box<dyn Error>> {
     let mut wtr = WriterBuilder::new()
         .has_headers(true)
         .from_path("Data/Part_D_Forcasting_Cleaned.csv")?;
+
+    #[derive(Clone)]
+    struct Row {
+        segment: String,
+        country: String,
+        product: String,
+        discount_band: String,
+        units_sold: i64,
+        procurement: i64,
+        manufactured_price: i64,
+        sale_price: i64,
+        budget: i64,
+        discounts: i64,
+        sales: i64,
+        cogs: i64,
+        date: NaiveDate,
+    }
+
+    let mut rows: Vec<Row> = Vec::new();
+
+    for result in rdr.records() {
+        let record = result?;
+
+        if record
+            .iter()
+            .all(|s| s.trim().is_empty() || s.trim() == "null")
+        {
+            continue;
+        }
+
+        let date_str = record.get(12).unwrap_or("").trim();
+        if date_str.is_empty() || date_str == "null" {
+            continue;
+        }
+
+        let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")?;
+
+        rows.push(Row {
+            segment: record.get(0).unwrap_or("").trim().to_string(),
+            country: record.get(1).unwrap_or("").trim().to_string(),
+            product: record.get(2).unwrap_or("").trim().to_string(),
+            discount_band: record.get(3).unwrap_or("").trim().to_string(),
+
+            units_sold: parse_money(record.get(4).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            procurement: parse_money(record.get(5).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            manufactured_price: parse_money(record.get(6).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            sale_price: parse_money(record.get(7).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            budget: parse_money(record.get(8).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            discounts: parse_money(record.get(9).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            sales: parse_money(record.get(10).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            cogs: parse_money(record.get(11).unwrap_or(""))
+                .map(|v| v.floor() as i64)
+                .unwrap_or(0),
+
+            date,
+        });
+    }
+
+    rows.sort_by_key(|r| r.date);
+
+    let window = 3;
+    let mut sales_ma: Vec<Option<f64>> = Vec::with_capacity(rows.len());
+
+    for i in 0..rows.len() {
+        if i + 1 < window {
+            sales_ma.push(None);
+        } else {
+            let sum: i64 = rows[i + 1 - window..=i].iter().map(|r| r.sales).sum();
+
+            sales_ma.push(Some(sum as f64 / window as f64));
+        }
+    }
 
     wtr.write_record([
         "Segment",
@@ -242,73 +338,33 @@ fn clean_forcasting_csv() -> Result<(), Box<dyn Error>> {
         "Discounts Parsed",
         "Sales Parsed",
         "COGS Parsed",
+        "Sales_MA_3",
         "Date_ISO",
     ])?;
 
-    for result in rdr.records() {
-        let record = result?;
-
-        if record
-            .iter()
-            .all(|s| s.trim().is_empty() || s.trim() == "null")
-        {
-            continue;
-        }
-        let segment = record.get(0).unwrap_or("").trim().to_string();
-        let country = record.get(1).unwrap_or("").trim().to_string();
-        let product = record.get(2).unwrap_or("").trim().to_string();
-        let discount_band = record.get(3).unwrap_or("").trim().to_string();
-
-        let units_sold = parse_money(record.get(4).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let procurment = parse_money(record.get(5).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let manufactured_price = parse_money(record.get(6).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let sale_price = parse_money(record.get(7).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let budget = parse_money(record.get(8).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let discounts = parse_money(record.get(9).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let sales = parse_money(record.get(10).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-        let cogs = parse_money(record.get(11).unwrap_or("").trim())
-            .map(|v| v.floor() as i64)
-            .unwrap_or(0);
-
-        let date_str = record.get(12).unwrap_or("").trim();
-        if date_str.is_empty() || date_str == "null" {
-            continue;
-        }
-        let date = NaiveDate::parse_from_str(date_str, "%d/%m/%Y")?;
-
+    for (row, ma) in rows.iter().zip(sales_ma.iter()) {
         wtr.write_record([
-            &segment,
-            &country,
-            &product,
-            &discount_band,
-            &units_sold.to_string(),
-            &procurment.to_string(),
-            &manufactured_price.to_string(),
-            &sale_price.to_string(),
-            &budget.to_string(),
-            &discounts.to_string(),
-            &sales.to_string(),
-            &cogs.to_string(),
-            &date.format("%Y-%m-%d").to_string(),
+            &row.segment,
+            &row.country,
+            &row.product,
+            &row.discount_band,
+            &row.units_sold.to_string(),
+            &row.procurement.to_string(),
+            &row.manufactured_price.to_string(),
+            &row.sale_price.to_string(),
+            &row.budget.to_string(),
+            &row.discounts.to_string(),
+            &row.sales.to_string(),
+            &row.cogs.to_string(),
+            &ma.map(|v| v.round().to_string()).unwrap_or_default(),
+            &row.date.format("%Y-%m-%d").to_string(),
         ])?;
     }
-    println!("Forcasting CSV cleaned and saved!");
+
+    println!("Forecasting CSV cleaned, smoothed, and saved!");
     Ok(())
 }
+
 fn main() -> Result<(), Box<dyn Error>> {
     //clean_dashboard_csv()?;
     //clean_timeseries_csv()?;
